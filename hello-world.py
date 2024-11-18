@@ -502,7 +502,7 @@ class ServoControlGUI(QMainWindow):
 
     def connect_robot(self):
         try:
-            self.robot = RobotController("COM4", list(range(1, 7)), max_retries=3, retry_delay=1.0)
+            self.robot = RobotController("/dev/ttyUSB0", list(range(1, 7)), max_retries=3, retry_delay=1.0)
             self.robot_wrapper = ThreadSafeRobotController(self.robot)
             self.connect_button.setEnabled(False)
             self.test_button.setEnabled(True)
