@@ -649,12 +649,12 @@ class ServoControlGUI(QMainWindow):
 
     def toggle_demo(self):
         if not self.running:
+            self.recorder = ServoDataRecorder()
+            self.recorder.start()
+
             self.running = True
             self.demo_button.setText("Stop Demo")
             self.test_button.setEnabled(False)
-            
-            recorder = ServoDataRecorder()
-            recorder.start()
 
             def demo_thread():
                 t = 0
@@ -664,21 +664,18 @@ class ServoControlGUI(QMainWindow):
                 while self.running and error_count < max_errors:
                     try:
                         with self.robot_wrapper.lock:
-                            # if 3 in self.robot.servos:
-                            #     self.robot.servos[3].move(sin(t) * 10 + 160)
-                            # if 6 in self.robot.servos:
-                            #     self.robot.servos[6].move(cos(t) * 10 + 100)
                             if 3 in self.robot.servos and 6 in self.robot.servos:
-                                # Get current positions before moving
+                                # Get current positions
                                 servo3_pos = self.robot.servos[3].get_physical_angle()
                                 servo6_pos = self.robot.servos[6].get_physical_angle()
                                 
                                 # Record positions
-                                recorder.record(servo3_pos, servo6_pos)
+                                self.recorder.record(servo3_pos, servo6_pos)
                                 
                                 # Move servos
                                 self.robot.servos[3].move(sin(t) * 10 + 160)
                                 self.robot.servos[6].move(cos(t) * 10 + 100)
+
                         error_count = 0  # Reset error count on successful operation
                         time.sleep(self.demo_update_rate)
                         t += self.movement_scale
@@ -697,7 +694,8 @@ class ServoControlGUI(QMainWindow):
                 if error_count >= max_errors:
                     self.running = False
                 
-                recorder.save_plot()
+                if self.recorder:
+                    self.recorder.save_plot()
 
                 # Safe shutdown after demo stops
                 if self.robot and self.robot_wrapper:
@@ -705,9 +703,16 @@ class ServoControlGUI(QMainWindow):
                         success, message = self.robot.safe_shutdown()
                         self.signals.status_update.emit(f"Shutdown status: {message}")
 
+                        for servo_id in [3, 6]:
+                            if servo_id in self.robot.servos:
+                                try:
+                                    self.robot.servos[servo_id].enable_torque()
+                                except:
+                                    pass
+
                 # Update UI from thread
                 if not self.running:
-                    self.signals.status_update.emit("Demo stopped due to errors")
+                    self.signals.status_update.emit("Demo stopped")
                     # Reset button state
                     self.demo_button.setText("Start Demo")
                     self.test_button.setEnabled(True)
@@ -717,9 +722,27 @@ class ServoControlGUI(QMainWindow):
             self.signals.status_update.emit("Demo running...")
         else:
             self.running = False
+            if self.recorder:
+                self.recorder.save_plot()
             self.demo_button.setText("Start Demo")
             self.test_button.setEnabled(True)
             self.signals.status_update.emit("Stopping demo and performing safe shutdown...")
+
+            def shutdown_thread():
+                if self.robot and self.robot_wrapper:
+                    with self.robot_wrapper.lock:
+                        success, message = self.robot.safe_shutdown()
+                        self.signals.status_update.emit(f"Shutdown status: {message}")
+                        
+                        # Re-enable torque after shutdown
+                        for servo_id in [3, 6]:  # Only for demo servos
+                            if servo_id in self.robot.servos:
+                                try:
+                                    self.robot.servos[servo_id].enable_torque()
+                                except:
+                                    pass
+            
+            Thread(target=shutdown_thread).start()
 
     def update_servo_widget(self, servo_id, connected, angle, voltage, temp, led_on):
         if servo_id in self.servo_widgets:
