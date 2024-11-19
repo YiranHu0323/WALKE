@@ -10,6 +10,9 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QEvent
 from PyQt6.QtGui import QColor
 from pylx16a.lx16a import *
 import serial
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime
 
 class Signals(QObject):
     autotest_complete = pyqtSignal(bool)
@@ -21,6 +24,7 @@ class RobotController:
         self.servos = {}
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.recorder = ServoDataRecorder()
 
         self.safe_positions = {
             1: 85,
@@ -152,23 +156,64 @@ class RobotController:
         print("Autotest completed successfully")
         return True
 
+    # def run_demo(self):
+    #     t = 0
+    #     while True:
+    #         try:
+    #             # Only move servos 3 and 6 (upper legs)
+    #             if 3 in self.servos:
+    #                 self.servos[3].move(sin(t) * 10 + 160)
+    #             if 6 in self.servos:
+    #                 self.servos[6].move(cos(t) * 10 + 100)
+    #             time.sleep(0.01)
+    #             t += 0.1
+    #         except ServoTimeoutError as e:
+    #             print(f"Lost communication with servo {e.id_}")
+    #             break
+    #         except KeyboardInterrupt:
+    #             print("\nStopping demo...")
+    #             break
     def run_demo(self):
+        """Run the demo and record servo movements"""
+        print("Starting demo with movement recording...")
+        self.recorder.start()
+        
         t = 0
-        while True:
-            try:
-                # Only move servos 3 and 6 (upper legs)
-                if 3 in self.servos:
-                    self.servos[3].move(sin(t) * 10 + 160)
-                if 6 in self.servos:
-                    self.servos[6].move(cos(t) * 10 + 100)
-                time.sleep(0.01)
-                t += 0.1
-            except ServoTimeoutError as e:
-                print(f"Lost communication with servo {e.id_}")
-                break
-            except KeyboardInterrupt:
-                print("\nStopping demo...")
-                break
+        try:
+            while True:
+                try:
+                    servo3_pos = None
+                    servo6_pos = None
+                    
+                    # Move servos
+                    if 3 in self.servos:
+                        target3 = sin(t) * 10 + 160
+                        self.servos[3].move(target3)
+                        servo3_pos = self.servos[3].get_physical_angle()
+                        
+                    if 6 in self.servos:
+                        target6 = cos(t) * 10 + 100
+                        self.servos[6].move(target6)
+                        servo6_pos = self.servos[6].get_physical_angle()
+                    
+                    # Record positions if both servos responded
+                    if servo3_pos is not None and servo6_pos is not None:
+                        self.recorder.record(servo3_pos, servo6_pos)
+                        
+                    time.sleep(0.01)  # 10ms update rate
+                    t += 0.1
+                    
+                except ServoTimeoutError as e:
+                    print(f"Communication error: {e}")
+                    break
+                    
+                except KeyboardInterrupt:
+                    print("\nDemo stopped by user")
+                    break
+                    
+        finally:
+            self.recorder.stop()
+            self._safe_shutdown()
 
     def safe_shutdown(self) -> tuple[bool, str]:
         """
@@ -231,6 +276,7 @@ class RobotController:
             for servo_id, servo in self.servos.items():
                 try:
                     servo.disable_torque()
+                    print(f"Disabled servo {servo_id}")
                 except (ServoTimeoutError, ServoChecksumError) as e:
                     return False, f"Failed to disable servo {servo_id}: {str(e)}"
             
@@ -239,6 +285,68 @@ class RobotController:
         except Exception as e:
             return False, f"Unexpected error during shutdown: {str(e)}"
 
+class ServoDataRecorder:
+    def __init__(self):
+        self.times = []
+        self.servo3_positions = []
+        self.servo6_positions = []
+        self.start_time = None
+        self.is_recording = False
+        
+    def start(self):
+        self.start_time = time.time()
+        self.times = []
+        self.servo3_positions = []
+        self.servo6_positions = []
+        self.is_recording = True
+        print("Started recording servo movements")
+        
+    def stop(self):
+        self.is_recording = False
+        self._save_plot()
+        print("Stopped recording servo movements")
+        
+    def record(self, servo3_pos, servo6_pos):
+        if not self.is_recording:
+            return
+            
+        current_time = time.time() - self.start_time
+        self.times.append(current_time)
+        self.servo3_positions.append(servo3_pos)
+        self.servo6_positions.append(servo6_pos)
+        
+    def _save_plot(self):
+        if not self.times:  # No data recorded
+            print("No data to plot")
+            return
+            
+        plt.figure(figsize=(12, 6))
+        plt.plot(self.times, self.servo3_positions, 'b-', label='Servo 3', alpha=0.7)
+        plt.plot(self.times, self.servo6_positions, 'g-', label='Servo 6', alpha=0.7)
+        
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.xlabel('Time (seconds)')
+        plt.ylabel('Angle (degrees)')
+        plt.title('Servo Movement During Demo')
+        plt.legend()
+        
+        # Add some statistics as text
+        stats_text = (
+            f'Duration: {self.times[-1]:.1f}s\n'
+            f'Servo 3 - Mean: {np.mean(self.servo3_positions):.1f}°, '
+            f'Range: {np.ptp(self.servo3_positions):.1f}°\n'
+            f'Servo 6 - Mean: {np.mean(self.servo6_positions):.1f}°, '
+            f'Range: {np.ptp(self.servo6_positions):.1f}°'
+        )
+        plt.figtext(0.02, 0.02, stats_text, fontsize=8, family='monospace')
+        
+        # Save with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'servo_movement_{timestamp}.png'
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"Plot saved as {filename}")
+    
 class ServoStatusWidget(QWidget):
     def __init__(self, servo_id: int, parent=None):
         super().__init__(parent)
@@ -602,7 +710,7 @@ class ServoControlGUI(QMainWindow):
 
                 # Update UI from thread
                 if not self.running:
-                    self.signals.status_update.emit("Demo stopped due to errors")
+                    self.signals.status_update.emit("Demo stopped")
                     # Reset button state
                     self.demo_button.setText("Start Demo")
                     self.test_button.setEnabled(True)
