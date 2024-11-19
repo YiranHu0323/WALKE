@@ -355,6 +355,10 @@ class ServoStatusWidget(QWidget):
         
         # Title
         title = QLabel(f"Servo {self.servo_id}")
+        font = title.font()
+        font.setPointSize(14)
+        font.setBold(True)
+        title.setFont(font)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
         
@@ -363,20 +367,38 @@ class ServoStatusWidget(QWidget):
         self.angle_label = QLabel("Angle: --")
         self.voltage_label = QLabel("Voltage: --")
         self.temperature_label = QLabel("Temp: --")
+        self.led_indicator = QLabel("LED: OFF")
+        
+        status_font = font
+        status_font.setPointSize(14)
+        status_font.setBold(False)
         
         for label in [self.connection_status, self.angle_label, 
-                     self.voltage_label, self.temperature_label]:
+                     self.voltage_label, self.temperature_label,
+                     self.led_indicator]:
+            label.setFont(status_font)
             layout.addWidget(label)
-        
-        # LED indicator
-        self.led_indicator = QLabel("LED: OFF")
-        layout.addWidget(self.led_indicator)
         
         self.setLayout(layout)
         
     def update_status(self, connected: bool, angle: float = None, 
                      voltage: float = None, temp: float = None, led_on: bool = False):
-        self.connection_status.setText(f"Status: {'Connected' if connected else 'Disconnected'}")
+        # self.connection_status.setText(f"Status: {'Connected' if connected else 'Disconnected'}")
+        # if connected:
+        #     self.angle_label.setText(f"Angle: {angle:.2f}°")
+        #     self.voltage_label.setText(f"Voltage: {voltage/1000:.2f}V")
+        #     self.temperature_label.setText(f"Temp: {temp}°C")
+        #     self.led_indicator.setText(f"LED: {'ON' if led_on else 'OFF'}")
+        # else:
+        #     self.angle_label.setText("Angle: --")
+        #     self.voltage_label.setText("Voltage: --")
+        #     self.temperature_label.setText("Temp: --")
+        #     self.led_indicator.setText("LED: --")
+        status_color = QColor(0, 155, 0) if connected else QColor(155, 0, 0)
+        status_text = f"Status: {'Connected' if connected else 'Disconnected'}"
+        self.connection_status.setText(status_text)
+        self.connection_status.setStyleSheet(f"color: {status_color.name()}")
+        
         if connected:
             self.angle_label.setText(f"Angle: {angle:.2f}°")
             self.voltage_label.setText(f"Voltage: {voltage/1000:.2f}V")
@@ -466,17 +488,43 @@ class ServoControlGUI(QMainWindow):
         
         # Control buttons
         button_layout = QHBoxLayout()
+
         self.connect_button = QPushButton("Connect")
-        self.connect_button.clicked.connect(self.connect_robot)
         self.test_button = QPushButton("Run Autotest")
-        self.test_button.clicked.connect(self.run_autotest)
-        self.test_button.setEnabled(False)
         self.demo_button = QPushButton("Start Demo")
+        
+        # Style all buttons
+        for button in [self.connect_button, self.test_button, self.demo_button]:
+            button.setMinimumSize(150, 50)  # Make buttons larger
+            font = button.font()
+            font.setPointSize(14)
+            font.setBold(True)
+            button.setFont(font)
+            button.setStyleSheet("""
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border-radius: 5px;
+                    padding: 10px;
+                }
+                QPushButton:hover {
+                    background-color: #1976D2;
+                }
+                QPushButton:disabled {
+                    background-color: #BDBDBD;
+                }
+            """)
+        
+        self.connect_button.clicked.connect(self.connect_robot)
+        self.test_button.clicked.connect(self.run_autotest)
         self.demo_button.clicked.connect(self.toggle_demo)
+        
+        self.test_button.setEnabled(False)
         self.demo_button.setEnabled(False)
         
-        for button in [self.connect_button, self.test_button, self.demo_button]:
-            button_layout.addWidget(button)
+        button_layout.addWidget(self.connect_button)
+        button_layout.addWidget(self.test_button)
+        button_layout.addWidget(self.demo_button)
         main_layout.addLayout(button_layout)
         
         # Servo status grid
@@ -493,6 +541,9 @@ class ServoControlGUI(QMainWindow):
         
         # Status bar
         self.status_bar = QStatusBar()
+        status_font = self.status_bar.font()
+        status_font.setPointSize(14)
+        self.status_bar.setFont(status_font)
         self.setStatusBar(self.status_bar)
         
         # Update timer
@@ -528,6 +579,39 @@ class ServoControlGUI(QMainWindow):
             Thread(target=test_thread).start()
             self.signals.status_update.emit("Running autotest...")
 
+    def flash_leds_celebration(self):
+        """Flash LEDs in a celebration pattern after successful tests"""
+        def celebration_thread():
+            if not self.robot or not self.robot_wrapper:
+                return
+            
+            try:
+                with self.robot_wrapper.lock:
+                    # Flash LEDs 3 times
+                    for _ in range(3):
+                        # Turn on LEDs
+                        for servo in self.robot.servos.values():
+                            try:
+                                servo.led_power_on()
+                            except ServoTimeoutError:
+                                continue
+                        time.sleep(0.5)
+                        
+                        # Turn off LEDs
+                        for servo in self.robot.servos.values():
+                            try:
+                                servo.led_power_off()
+                            except ServoTimeoutError:
+                                continue
+                        time.sleep(0.5)
+                    
+                    self.signals.status_update.emit("LED celebration completed!")
+            except Exception as e:
+                self.signals.status_update.emit(f"LED celebration error: {str(e)}")
+        
+        # Start celebration in separate thread
+        Thread(target=celebration_thread).start()
+
     def on_autotest_complete(self, success: bool):
         if success:
             # Start a new thread for homing to avoid GUI freezing
@@ -535,6 +619,7 @@ class ServoControlGUI(QMainWindow):
                 home_success = self.move_to_home()
                 if home_success:
                     self.signals.status_update.emit("Homing completed successfully")
+                    self.flash_leds_celebration()
                 else:
                     self.signals.status_update.emit("Homing failed")
                 # Re-enable buttons after everything is done
