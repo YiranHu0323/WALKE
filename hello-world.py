@@ -1,193 +1,3 @@
-# from math import sin, cos
-# from pylx16a.lx16a import *
-# import time
-
-# LX16A.initialize("COM4", 0.1)
-
-# try:
-#     servo1 = LX16A(3)
-#     servo2 = LX16A(6)
-#     servo1.set_angle_limits(0, 240)
-#     servo2.set_angle_limits(0, 240)
-# except ServoTimeoutError as e:
-#     print(f"Servo {e.id_} is not responding. Exiting...")
-#     quit()
-
-# t = 0
-# while True:
-#     servo1.move(sin(t) * 10 + 160)
-#     servo2.move(cos(t) * 10 + 100)
-
-#     time.sleep(0.01)
-#     t += 0.1
-
-# from math import sin, cos
-# from typing import List
-# from pylx16a.lx16a import *
-# import time
-
-# class RobotController:
-#     def __init__(self, port: str, servo_ids: List[int], max_retries: int = 3, retry_delay: float = 1.0):
-#         self.servos = {}
-#         self.max_retries = max_retries
-#         self.retry_delay = retry_delay
-#         LX16A.initialize(port, 0.1)
-#         self._setup_servos(servo_ids)
-
-#     def _try_connect_servo(self, id: int) -> LX16A:
-#         """Attempt to connect to a servo with retries"""
-#         attempts = 0
-#         while attempts < self.max_retries:
-#             try:
-#                 servo = LX16A(id)
-#                 servo.set_angle_limits(0, 240)
-#                 print(f"Successfully connected to servo {id}")
-#                 return servo
-#             except ServoTimeoutError:
-#                 attempts += 1
-#                 print(f"Attempt {attempts}/{self.max_retries} failed for servo {id}")
-#                 if attempts < self.max_retries:
-#                     print(f"Retrying in {self.retry_delay} seconds...")
-#                     time.sleep(self.retry_delay)
-        
-#         raise ServoTimeoutError(f"Failed to connect to servo {id} after {self.max_retries} attempts", id)
-
-#     def _setup_servos(self, servo_ids: List[int]):
-#         failed_servos = []
-#         for id in servo_ids:
-#             try:
-#                 servo = self._try_connect_servo(id)
-#                 self.servos[id] = servo
-#             except ServoTimeoutError as e:
-#                 print(f"Warning: Failed to initialize servo {id} after all attempts")
-#                 failed_servos.append(id)
-
-#         if failed_servos:
-#             print(f"\nFailed to connect to the following servos: {failed_servos}")
-#             response = input("Do you want to continue anyway? (y/n): ")
-#             if response.lower() != 'y':
-#                 raise Exception("Setup aborted by user")
-
-#     def run_autotest(self):
-#         print("Starting autotest procedure...")
-        
-#         # Test communication and query positions
-#         for id, servo in self.servos.items():
-#             attempts = 0
-#             while attempts < self.max_retries:
-#                 try:
-#                     angle = servo.get_physical_angle()
-#                     print(f"Servo {id} position: {angle:.2f} degrees")
-#                     break
-#                 except ServoTimeoutError:
-#                     attempts += 1
-#                     if attempts == self.max_retries:
-#                         print(f"ERROR: Cannot communicate with servo {id} after {self.max_retries} attempts")
-#                         return False
-#                     print(f"Retry {attempts}/{self.max_retries} for servo {id}")
-#                     time.sleep(self.retry_delay)
-
-#         # Test power levels
-#         for id, servo in self.servos.items():
-#             attempts = 0
-#             while attempts < self.max_retries:
-#                 try:
-#                     voltage = servo.get_vin()
-#                     print(f"Servo {id} voltage: {voltage/1000:.2f}V")
-#                     if voltage < 6000:  # 6V minimum
-#                         print(f"ERROR: Servo {id} voltage too low")
-#                         return False
-#                     break
-#                 except ServoTimeoutError:
-#                     attempts += 1
-#                     if attempts == self.max_retries:
-#                         print(f"ERROR: Cannot read voltage from servo {id} after {self.max_retries} attempts")
-#                         return False
-#                     print(f"Retry {attempts}/{self.max_retries} for servo {id}")
-#                     time.sleep(self.retry_delay)
-
-#         # Test torque enable/disable
-#         for id, servo in self.servos.items():
-#             attempts = 0
-#             while attempts < self.max_retries:
-#                 try:
-#                     servo.disable_torque()
-#                     if servo.is_torque_enabled():
-#                         print(f"ERROR: Failed to disable torque on servo {id}")
-#                         return False
-#                     servo.enable_torque()
-#                     if not servo.is_torque_enabled():
-#                         print(f"ERROR: Failed to enable torque on servo {id}")
-#                         return False
-#                     break
-#                 except ServoTimeoutError:
-#                     attempts += 1
-#                     if attempts == self.max_retries:
-#                         print(f"ERROR: Cannot control torque on servo {id} after {self.max_retries} attempts")
-#                         return False
-#                     print(f"Retry {attempts}/{self.max_retries} for servo {id}")
-#                     time.sleep(self.retry_delay)
-
-#         # Flash LEDs
-#         for _ in range(3):
-#             for servo in self.servos.values():
-#                 try:
-#                     servo.led_power_on()
-#                 except ServoTimeoutError:
-#                     continue
-#             time.sleep(0.5)
-#             for servo in self.servos.values():
-#                 try:
-#                     servo.led_power_off()
-#                 except ServoTimeoutError:
-#                     continue
-#             time.sleep(0.5)
-
-#         print("Autotest completed successfully")
-#         return True
-
-#     def run_demo(self):
-#         t = 0
-#         while True:
-#             try:
-#                 # Only move servos 3 and 6 (upper legs)
-#                 if 3 in self.servos:
-#                     self.servos[3].move(sin(t) * 10 + 160)
-#                 if 6 in self.servos:
-#                     self.servos[6].move(cos(t) * 10 + 100)
-#                 time.sleep(0.01)
-#                 t += 0.1
-#             except ServoTimeoutError as e:
-#                 print(f"Lost communication with servo {e.id_}")
-#                 break
-#             except KeyboardInterrupt:
-#                 print("\nStopping demo...")
-#                 break
-
-# def main():
-#     try:
-#         # Initialize robot with all 6 servos, 3 retry attempts, 1 second between retries
-#         robot = RobotController("COM4", [1, 2, 3, 4, 5, 6], max_retries=3, retry_delay=1.0)
-        
-#         # Run autotest first
-#         if not robot.run_autotest():
-#             print("Autotest failed, exiting...")
-#             return
-        
-#         # If autotest passes, run the demo
-#         print("\nStarting demo motion...")
-#         robot.run_demo()
-        
-#     except ServoTimeoutError as e:
-#         print(f"Failed to initialize servo {e.id_}. Please check connections.")
-#     except serial.SerialException:
-#         print("Failed to open serial port. Please check port name and connections.")
-#     except Exception as e:
-#         print(f"Unexpected error: {str(e)}")
-
-# if __name__ == "__main__":
-#     main()
-
 from math import sin, cos
 from typing import List
 import sys
@@ -211,6 +21,22 @@ class RobotController:
         self.servos = {}
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+
+        self.safe_positions = {
+            1: 85,
+            2: 162,
+            3: 160,
+            4: 130,
+            5: 92,
+            6: 100
+        }
+        # Temperature and current limits
+        self.temp_min = 20  # °C
+        self.temp_max = 85  # °C
+        self.voltage_min = 6000  # mV
+        self.voltage_max = 12000  # mV
+        self.position_tolerance = 5
+
         LX16A.initialize(port, 0.1)
         self._setup_servos(servo_ids)
 
@@ -343,6 +169,75 @@ class RobotController:
             except KeyboardInterrupt:
                 print("\nStopping demo...")
                 break
+
+    def safe_shutdown(self) -> tuple[bool, str]:
+        """
+        Performs a safe shutdown procedure for all servos.
+        Returns: (success: bool, message: str)
+        """
+        try:
+            # Step 1: Query current positions and check motor health
+            current_positions = {}
+            motor_health = {}
+            
+            for servo_id, servo in self.servos.items():
+                try:
+                    position = servo.get_physical_angle()
+                    temp = servo.get_temp()
+                    voltage = servo.get_vin()
+                    
+                    # Store current position
+                    current_positions[servo_id] = position
+                    
+                    # Check temperature and voltage
+                    if temp < self.temp_min or temp > self.temp_max:
+                        return False, f"Servo {servo_id} temperature ({temp}°C) out of safe range"
+                    if voltage < self.voltage_min or voltage > self.voltage_max:
+                        return False, f"Servo {servo_id} voltage ({voltage/1000:.1f}V) out of safe range"
+                        
+                    motor_health[servo_id] = True
+                except (ServoTimeoutError, ServoChecksumError) as e:
+                    return False, f"Failed to query servo {servo_id}: {str(e)}"
+            
+            # Step 2: Calculate movement increments (use 20 steps)
+            steps = 20
+            increments = {}
+            for servo_id in self.servos:
+                start_pos = current_positions[servo_id]
+                end_pos = self.safe_positions[servo_id]
+                increments[servo_id] = (end_pos - start_pos) / steps
+            
+            # Step 3: Gradually move to safe position
+            for step in range(steps):
+                for servo_id, servo in self.servos.items():
+                    target = current_positions[servo_id] + increments[servo_id]
+                    try:
+                        servo.move(target)
+                        current_positions[servo_id] = target
+                    except (ServoTimeoutError, ServoChecksumError) as e:
+                        return False, f"Failed to move servo {servo_id} to safe position: {str(e)}"
+                time.sleep(0.1)  # 100ms delay between steps
+            
+            # Step 4: Verify final positions
+            for servo_id, servo in self.servos.items():
+                try:
+                    final_pos = servo.get_physical_angle()
+                    if abs(final_pos - self.safe_positions[servo_id]) > self.position_tolerance:
+                        return False, f"Servo {servo_id} failed to reach safe position"
+                except (ServoTimeoutError, ServoChecksumError) as e:
+                    return False, f"Failed to verify servo {servo_id} position: {str(e)}"
+            
+            # Step 5: Disable all motors
+            for servo_id, servo in self.servos.items():
+                try:
+                    servo.disable_torque()
+                except (ServoTimeoutError, ServoChecksumError) as e:
+                    return False, f"Failed to disable servo {servo_id}: {str(e)}"
+            
+            return True, "Shutdown completed successfully"
+            
+        except Exception as e:
+            return False, f"Unexpected error during shutdown: {str(e)}"
 
 class ServoStatusWidget(QWidget):
     def __init__(self, servo_id: int, parent=None):
@@ -699,6 +594,12 @@ class ServoControlGUI(QMainWindow):
                 if error_count >= max_errors:
                     self.running = False
                 
+                # Safe shutdown after demo stops
+                if self.robot and self.robot_wrapper:
+                    with self.robot_wrapper.lock:
+                        success, message = self.robot.safe_shutdown()
+                        self.signals.status_update.emit(f"Shutdown status: {message}")
+
                 # Update UI from thread
                 if not self.running:
                     self.signals.status_update.emit("Demo stopped due to errors")
@@ -713,7 +614,7 @@ class ServoControlGUI(QMainWindow):
             self.running = False
             self.demo_button.setText("Start Demo")
             self.test_button.setEnabled(True)
-            self.signals.status_update.emit("Demo stopped")
+            self.signals.status_update.emit("Stopping demo and performing safe shutdown...")
 
     def update_servo_widget(self, servo_id, connected, angle, voltage, temp, led_on):
         if servo_id in self.servo_widgets:
@@ -726,11 +627,13 @@ class ServoControlGUI(QMainWindow):
         if self.robot:
             # Safely stop all servos
             with self.robot_wrapper.lock:
-                for servo in self.robot.servos.values():
-                    try:
-                        servo.disable_torque()
-                    except:
-                        pass
+                # for servo in self.robot.servos.values():
+                #     try:
+                #         servo.disable_torque()
+                #     except:
+                #         pass
+                success, message = self.robot.safe_shutdown()
+                print(f"Final shutdown status: {message}")
         event.accept()
 
 def main():
