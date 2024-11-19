@@ -356,7 +356,7 @@ class ServoStatusWidget(QWidget):
         # Title
         title = QLabel(f"Servo {self.servo_id}")
         font = title.font()
-        font.setPointSize(14)
+        font.setPointSize(16)
         font.setBold(True)
         title.setFont(font)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -370,7 +370,7 @@ class ServoStatusWidget(QWidget):
         self.led_indicator = QLabel("LED: OFF")
         
         status_font = font
-        status_font.setPointSize(14)
+        status_font.setPointSize(16)
         status_font.setBold(False)
         
         for label in [self.connection_status, self.angle_label, 
@@ -497,7 +497,7 @@ class ServoControlGUI(QMainWindow):
         for button in [self.connect_button, self.test_button, self.demo_button]:
             button.setMinimumSize(150, 50)  # Make buttons larger
             font = button.font()
-            font.setPointSize(14)
+            font.setPointSize(16)
             font.setBold(True)
             button.setFont(font)
             button.setStyleSheet("""
@@ -542,7 +542,7 @@ class ServoControlGUI(QMainWindow):
         # Status bar
         self.status_bar = QStatusBar()
         status_font = self.status_bar.font()
-        status_font.setPointSize(14)
+        status_font.setPointSize(16)
         self.status_bar.setFont(status_font)
         self.setStatusBar(self.status_bar)
         
@@ -605,7 +605,7 @@ class ServoControlGUI(QMainWindow):
                                 continue
                         time.sleep(0.5)
                     
-                    self.signals.status_update.emit("LED celebration completed!")
+                    # self.signals.status_update.emit("LED celebration completed!")
             except Exception as e:
                 self.signals.status_update.emit(f"LED celebration error: {str(e)}")
         
