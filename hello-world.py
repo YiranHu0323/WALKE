@@ -435,7 +435,180 @@ class ServoControlGUI(QMainWindow):
             5: 92,  # right lower leg
             6: 100   # right upper leg
         }
+
+        self.moving_forward = False
+        self.moving_sideways = False
+        self.sideways_direction = 0  # -1 for left, 1 for right
+        self.control_thread = None
+        self.t = 0
+    
+    def setup_control_panel(self):
+        control_panel = QWidget()
+        panel_layout = QVBoxLayout()
         
+        # Create direction buttons
+        button_grid = QGridLayout()
+        
+        self.forward_button = QPushButton("Forward")
+        self.left_button = QPushButton("Left")
+        self.right_button = QPushButton("Right")
+        self.stop_button = QPushButton("Stop")
+        
+        # Style control buttons
+        control_buttons = [self.forward_button, self.left_button, 
+                         self.right_button, self.stop_button]
+        
+        for button in control_buttons:
+            button.setMinimumSize(100, 50)
+            font = button.font()
+            font.setPointSize(16)
+            font.setBold(True)
+            button.setFont(font)
+        
+        # Set specific colors for each button
+        self.forward_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 5px;
+            }
+            QPushButton:hover { background-color: #45a049; }
+            QPushButton:disabled { background-color: #BDBDBD; }
+        """)
+        
+        self.left_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border-radius: 5px;
+            }
+            QPushButton:hover { background-color: #1976D2; }
+            QPushButton:disabled { background-color: #BDBDBD; }
+        """)
+        
+        self.right_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border-radius: 5px;
+            }
+            QPushButton:hover { background-color: #1976D2; }
+            QPushButton:disabled { background-color: #BDBDBD; }
+        """)
+        
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border-radius: 5px;
+            }
+            QPushButton:hover { background-color: #da190b; }
+            QPushButton:disabled { background-color: #BDBDBD; }
+        """)
+        
+        # Connect button signals
+        self.forward_button.clicked.connect(self.toggle_forward)
+        self.left_button.clicked.connect(lambda: self.move_sideways(-1))
+        self.right_button.clicked.connect(lambda: self.move_sideways(1))
+        self.stop_button.clicked.connect(self.stop_all)
+        
+        # Arrange buttons in grid
+        button_grid.addWidget(self.forward_button, 0, 1)
+        button_grid.addWidget(self.left_button, 1, 0)
+        button_grid.addWidget(self.stop_button, 1, 1)
+        button_grid.addWidget(self.right_button, 1, 2)
+        
+        panel_layout.addLayout(button_grid)
+        control_panel.setLayout(panel_layout)
+        
+        # Disable control panel initially
+        for button in control_buttons:
+            button.setEnabled(False)
+            
+        return control_panel
+    
+    def toggle_forward(self):
+        """Toggle forward movement"""
+        if not self.moving_forward:
+            self.moving_forward = True
+            self.forward_button.setText("Stop Forward")
+            self.start_control_thread()
+        else:
+            self.moving_forward = False
+            self.forward_button.setText("Forward")
+            
+    def move_sideways(self, direction):
+        """Start sideways movement (-1 for left, 1 for right)"""
+        self.sideways_direction = direction
+        if not self.moving_sideways:
+            self.moving_sideways = True
+            if direction < 0:
+                self.left_button.setEnabled(False)
+                self.right_button.setEnabled(True)
+            else:
+                self.right_button.setEnabled(False)
+                self.left_button.setEnabled(True)
+            self.start_control_thread()
+    
+    def stop_all(self):
+        """Stop all movements"""
+        self.moving_forward = False
+        self.moving_sideways = False
+        self.sideways_direction = 0
+        self.forward_button.setText("Forward")
+        self.left_button.setEnabled(True)
+        self.right_button.setEnabled(True)
+        self.t = 0
+        
+        # Move servos back to home positions
+        def reset_thread():
+            if self.robot and self.robot_wrapper:
+                with self.robot_wrapper.lock:
+                    # Reset hip servos
+                    if 1 in self.robot.servos:
+                        self.robot.servos[1].move(self.home_positions[1])
+                    if 4 in self.robot.servos:
+                        self.robot.servos[4].move(self.home_positions[4])
+                    # Reset leg servos
+                    if 3 in self.robot.servos:
+                        self.robot.servos[3].move(self.home_positions[3])
+                    if 6 in self.robot.servos:
+                        self.robot.servos[6].move(self.home_positions[6])
+        
+        Thread(target=reset_thread).start()
+    
+    def start_control_thread(self):
+        """Start the control thread if not already running"""
+        if self.control_thread is None or not self.control_thread.is_alive():
+            self.control_thread = Thread(target=self.control_loop)
+            self.control_thread.start()
+    
+    def control_loop(self):
+        """Main control loop for robot movement"""
+        while self.moving_forward or self.moving_sideways:
+            try:
+                with self.robot_wrapper.lock:
+                    # Forward movement (servos 3 and 6)
+                    if self.moving_forward:
+                        if 3 in self.robot.servos:
+                            self.robot.servos[3].move(sin(self.t) * 10 + 160)
+                        if 6 in self.robot.servos:
+                            self.robot.servos[6].move(cos(self.t) * 10 + 100)
+                        self.t += 0.1
+                    
+                    # Sideways movement (servos 1 and 4)
+                    if self.moving_sideways:
+                        offset = 10 * self.sideways_direction
+                        if 1 in self.robot.servos:
+                            self.robot.servos[1].move(self.home_positions[1] + offset)
+                        if 4 in self.robot.servos:
+                            self.robot.servos[4].move(self.home_positions[4] + offset)
+                
+                time.sleep(0.01)
+            except Exception as e:
+                print(f"Control loop error: {str(e)}")
+                break
+    
     def move_to_home(self):
         """Move all servos to their home positions"""
         if not self.robot or not self.robot_wrapper:
@@ -476,6 +649,9 @@ class ServoControlGUI(QMainWindow):
         
         # Control buttons
         button_layout = QHBoxLayout()
+
+        control_panel = self.setup_control_panel()
+        main_layout.addWidget(control_panel)
 
         self.connect_button = QPushButton("Connect")
         self.test_button = QPushButton("Run Autotest")
@@ -546,6 +722,10 @@ class ServoControlGUI(QMainWindow):
             self.connect_button.setEnabled(False)
             self.test_button.setEnabled(True)
             self.demo_button.setEnabled(True)
+            self.forward_button.setEnabled(True)
+            self.left_button.setEnabled(True)
+            self.right_button.setEnabled(True)
+            self.stop_button.setEnabled(True)
             self.status_bar.showMessage("Robot connected successfully")
         except Exception as e:
             self.status_bar.showMessage(f"Connection failed: {str(e)}")
