@@ -530,6 +530,18 @@ class ServoControlGUI(QMainWindow):
     def toggle_forward(self):
         """Toggle forward movement"""
         if not self.moving_forward:
+            # Enable torque first
+            with self.robot_wrapper.lock:
+                try:
+                    if 3 in self.robot.servos:
+                        self.robot.servos[3].enable_torque()
+                    if 6 in self.robot.servos:
+                        self.robot.servos[6].enable_torque()
+                    time.sleep(0.1)  # Give time for torque to enable
+                except Exception as e:
+                    print(f"Error enabling torque: {str(e)}")
+                    return
+                    
             self.moving_forward = True
             self.forward_button.setText("Stop Forward")
             self.start_control_thread()
@@ -539,16 +551,29 @@ class ServoControlGUI(QMainWindow):
             
     def move_sideways(self, direction):
         """Start sideways movement (-1 for left, 1 for right)"""
-        self.sideways_direction = direction
-        if not self.moving_sideways:
-            self.moving_sideways = True
-            if direction < 0:
-                self.left_button.setEnabled(False)
-                self.right_button.setEnabled(True)
-            else:
-                self.right_button.setEnabled(False)
-                self.left_button.setEnabled(True)
-            self.start_control_thread()
+        if self.robot and self.robot_wrapper:
+            self.sideways_direction = direction
+            if not self.moving_sideways:
+                # Enable torque first
+                with self.robot_wrapper.lock:
+                    try:
+                        if 1 in self.robot.servos:
+                            self.robot.servos[1].enable_torque()
+                        if 4 in self.robot.servos:
+                            self.robot.servos[4].enable_torque()
+                        time.sleep(0.1)  # Give time for torque to enable
+                    except Exception as e:
+                        print(f"Error enabling torque: {str(e)}")
+                        return
+                
+                self.moving_sideways = True
+                if direction < 0:
+                    self.left_button.setEnabled(False)
+                    self.right_button.setEnabled(True)
+                else:
+                    self.right_button.setEnabled(False)
+                    self.left_button.setEnabled(True)
+                self.start_control_thread()
     
     def stop_all(self):
         """Stop all movements"""
@@ -564,16 +589,25 @@ class ServoControlGUI(QMainWindow):
         def reset_thread():
             if self.robot and self.robot_wrapper:
                 with self.robot_wrapper.lock:
-                    # Reset hip servos
-                    if 1 in self.robot.servos:
-                        self.robot.servos[1].move(self.home_positions[1])
-                    if 4 in self.robot.servos:
-                        self.robot.servos[4].move(self.home_positions[4])
-                    # Reset leg servos
-                    if 3 in self.robot.servos:
-                        self.robot.servos[3].move(self.home_positions[3])
-                    if 6 in self.robot.servos:
-                        self.robot.servos[6].move(self.home_positions[6])
+                    try:
+                        # Enable torque for all servos first
+                        for servo_id in [1, 3, 4, 6]:
+                            if servo_id in self.robot.servos:
+                                self.robot.servos[servo_id].enable_torque()
+                        time.sleep(0.1)  # Give time for torque to enable
+                        
+                        # Reset hip servos
+                        if 1 in self.robot.servos:
+                            self.robot.servos[1].move(self.home_positions[1])
+                        if 4 in self.robot.servos:
+                            self.robot.servos[4].move(self.home_positions[4])
+                        # Reset leg servos
+                        if 3 in self.robot.servos:
+                            self.robot.servos[3].move(self.home_positions[3])
+                        if 6 in self.robot.servos:
+                            self.robot.servos[6].move(self.home_positions[6])
+                    except Exception as e:
+                        print(f"Error resetting servos: {str(e)}")
         
         Thread(target=reset_thread).start()
     
@@ -598,11 +632,25 @@ class ServoControlGUI(QMainWindow):
                     
                     # Sideways movement (servos 1 and 4)
                     if self.moving_sideways:
-                        offset = 10 * self.sideways_direction
-                        if 1 in self.robot.servos:
-                            self.robot.servos[1].move(self.home_positions[1] + offset)
-                        if 4 in self.robot.servos:
-                            self.robot.servos[4].move(self.home_positions[4] + offset)
+                        try:
+                            # Calculate target positions
+                            offset = 10 * self.sideways_direction
+                            target1 = self.home_positions[1] + offset
+                            target4 = self.home_positions[4] + offset
+                            
+                            # Move servos gradually
+                            if 1 in self.robot.servos:
+                                current1 = self.robot.servos[1].get_physical_angle()
+                                step1 = (target1 - current1) * 0.1  # Move 10% of remaining distance
+                                self.robot.servos[1].move(current1 + step1)
+                                
+                            if 4 in self.robot.servos:
+                                current4 = self.robot.servos[4].get_physical_angle()
+                                step4 = (target4 - current4) * 0.1  # Move 10% of remaining distance
+                                self.robot.servos[4].move(current4 + step4)
+                                
+                        except Exception as e:
+                            print(f"Sideways movement error: {str(e)}")
                 
                 time.sleep(0.01)
             except Exception as e:
@@ -719,13 +767,21 @@ class ServoControlGUI(QMainWindow):
         try:
             self.robot = RobotController("/dev/ttyUSB0", list(range(1, 7)), max_retries=3, retry_delay=1.0)
             self.robot_wrapper = ThreadSafeRobotController(self.robot)
+
+            with self.robot_wrapper.lock:
+                for servo_id in [1, 3, 4, 6]:
+                    if servo_id in self.robot.servos:
+                        self.robot.servos[servo_id].enable_torque()
+
             self.connect_button.setEnabled(False)
             self.test_button.setEnabled(True)
             self.demo_button.setEnabled(True)
+
             self.forward_button.setEnabled(True)
             self.left_button.setEnabled(True)
             self.right_button.setEnabled(True)
             self.stop_button.setEnabled(True)
+
             self.status_bar.showMessage("Robot connected successfully")
         except Exception as e:
             self.status_bar.showMessage(f"Connection failed: {str(e)}")
