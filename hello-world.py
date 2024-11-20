@@ -187,6 +187,10 @@ class RobotController:
             
             for servo_id, servo in self.servos.items():
                 try:
+                    # Enable torque first
+                    servo.enable_torque()
+                    time.sleep(0.1)  # Give some time for torque to enable
+                    
                     position = servo.get_physical_angle()
                     temp = servo.get_temp()
                     voltage = servo.get_vin()
