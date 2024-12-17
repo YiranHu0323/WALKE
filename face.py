@@ -38,7 +38,7 @@ class EyesWindow(QWidget):
         # Calculate eye dimensions and positions
         eye_width = width // 3  # Increased from 1/6 to 1/4 of screen width
         eye_height = height // 3  # Increased from 1/4 to 1/3 of screen height
-        eye_spacing = eye_width // 4  # Reduced spacing to accommodate larger eyes
+        eye_spacing = eye_width // 3  # Reduced spacing to accommodate larger eyes
         
         # Calculate center position
         center_x = width // 2
@@ -63,7 +63,7 @@ class EyesWindow(QWidget):
             
             # Draw pupils
             painter.setBrush(QColor(0, 0, 0))
-            pupil_size = eye_width // 2
+            pupil_size = eye_width // 2 + eye_width // 4
             
             # Left pupil
             painter.drawEllipse(center_x - eye_spacing - eye_width//2 - pupil_size//2,
