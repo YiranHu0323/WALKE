@@ -62,7 +62,7 @@ class EyesWindow(QWidget):
             
             # Draw pupils
             painter.setBrush(QColor(0, 0, 0))
-            pupil_size = eye_width // 3
+            pupil_size = eye_width // 2
             
             # Left pupil
             painter.drawEllipse(center_x - eye_spacing - eye_width//2 - pupil_size//2,
