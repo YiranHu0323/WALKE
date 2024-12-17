@@ -42,7 +42,8 @@ class EyesWindow(QWidget):
         
         # Calculate center position
         center_x = width // 2
-        center_y = height // 2
+        # center_y = height // 2
+        center_y = (height // 2) - (height // 8)
         
         # Draw eyes
         if not self.is_blinking:
