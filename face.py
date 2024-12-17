@@ -41,7 +41,7 @@ class EyesWindow(QWidget):
         eye_spacing = eye_width // 3  # Reduced spacing to accommodate larger eyes
         
         # Calculate center position
-        center_x = width // 2
+        center_x = width // 2 + width // 64
         # center_y = height // 2
         center_y = (height // 2) - (height // 8)
         
