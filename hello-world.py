@@ -181,21 +181,19 @@ class RobotController:
         Returns: (success: bool, message: str)
         """
         try:
-            # Step 1: Query current positions and check motor health
+            # Query current positions and check motor health
             current_positions = {}
             motor_health = {}
             
             for servo_id, servo in self.servos.items():
                 try:
-                    # Enable torque first
                     servo.enable_torque()
-                    time.sleep(0.1)  # Give some time for torque to enable
+                    time.sleep(0.1)
                     
                     position = servo.get_physical_angle()
                     temp = servo.get_temp()
                     voltage = servo.get_vin()
                     
-                    # Store current position
                     current_positions[servo_id] = position
                     
                     # Check temperature and voltage
@@ -208,7 +206,6 @@ class RobotController:
                 except (ServoTimeoutError, ServoChecksumError) as e:
                     return False, f"Failed to query servo {servo_id}: {str(e)}"
             
-            # Step 2: Calculate movement increments (use 20 steps)
             steps = 20
             increments = {}
             for servo_id in self.servos:
@@ -216,7 +213,7 @@ class RobotController:
                 end_pos = self.safe_positions[servo_id]
                 increments[servo_id] = (end_pos - start_pos) / steps
             
-            # Step 3: Gradually move to safe position
+            # Gradually move to safe position
             for step in range(steps):
                 for servo_id, servo in self.servos.items():
                     target = current_positions[servo_id] + increments[servo_id]
@@ -225,9 +222,9 @@ class RobotController:
                         current_positions[servo_id] = target
                     except (ServoTimeoutError, ServoChecksumError) as e:
                         return False, f"Failed to move servo {servo_id} to safe position: {str(e)}"
-                time.sleep(0.1)  # 100ms delay between steps
+                time.sleep(0.1)
             
-            # Step 4: Verify final positions
+            # Verify final positions
             for servo_id, servo in self.servos.items():
                 try:
                     final_pos = servo.get_physical_angle()
@@ -236,7 +233,7 @@ class RobotController:
                 except (ServoTimeoutError, ServoChecksumError) as e:
                     return False, f"Failed to verify servo {servo_id} position: {str(e)}"
             
-            # Step 5: Disable all motors
+            # Disable all motors
             for servo_id, servo in self.servos.items():
                 try:
                     servo.disable_torque()
