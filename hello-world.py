@@ -907,10 +907,10 @@ class ServoControlGUI(QMainWindow):
                     with self.robot_wrapper.lock:
                         if 2 in self.robot.servos:
                             self.robot.servos[2].enable_torque()
-                            self.robot.servos[2].move(170)  # Set servo 2 to 180
+                            self.robot.servos[2].move(180)  # Set servo 2 to 180
                         if 5 in self.robot.servos:
                             self.robot.servos[5].enable_torque()
-                            self.robot.servos[5].move(70)   # Set servo 5 to 60
+                            self.robot.servos[5].move(60)   # Set servo 5 to 60
                         time.sleep(0.5)  # Give time for servos to reach position
                 except Exception as e:
                     print(f"Error setting initial positions: {str(e)}")
