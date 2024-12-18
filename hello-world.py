@@ -163,10 +163,10 @@ class RobotController:
             try:
                 # Only move servos 3 and 6 (upper legs)
                 if 3 in self.servos:
-                    self.servos[3].move(sin(t) * 20 + 120)
+                    self.servos[3].move(sin(t) * 30 + 120)
                 if 6 in self.servos:
-                    self.servos[6].move(cos(t) * 20 + 120)
-                time.sleep(0.01)
+                    self.servos[6].move(cos(t) * 30 + 120)
+                time.sleep(0.005)
                 t += 0.1
             except ServoTimeoutError as e:
                 print(f"Lost communication with servo {e.id_}")
