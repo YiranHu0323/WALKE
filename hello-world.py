@@ -30,9 +30,9 @@ class RobotController:
         self.safe_positions = {
             1: 111,
             2: 120,
-            3: 180,
+            3: 120,
             4: 133,
-            5: 60,
+            5: 120,
             6: 120
         }
         # Temperature and current limits
@@ -421,7 +421,7 @@ class ServoControlGUI(QMainWindow):
         self.signals.autotest_complete.connect(self.on_autotest_complete)
         self.signals.status_update.connect(self.update_status_message)
         self.signals.servo_status.connect(self.update_servo_widget)
-        self.demo_update_rate = 0.01
+        self.demo_update_rate = 0.005
         self.status_update_rate = 500
         self.movement_scale = 0.2
         self.setup_ui()
@@ -903,6 +903,18 @@ class ServoControlGUI(QMainWindow):
             self.test_button.setEnabled(False)
 
             def demo_thread():
+                try:
+                    with self.robot_wrapper.lock:
+                        if 2 in self.robot.servos:
+                            self.robot.servos[2].enable_torque()
+                            self.robot.servos[2].move(180)  # Set servo 2 to 180
+                        if 5 in self.robot.servos:
+                            self.robot.servos[5].enable_torque()
+                            self.robot.servos[5].move(60)   # Set servo 5 to 60
+                        time.sleep(0.5)  # Give time for servos to reach position
+                except Exception as e:
+                    print(f"Error setting initial positions: {str(e)}")
+            
                 t = 0
                 error_count = 0
                 max_errors = 5  # Maximum number of consecutive errors before stopping
@@ -919,8 +931,8 @@ class ServoControlGUI(QMainWindow):
                                 self.recorder.record(servo3_pos, servo6_pos)
                                 
                                 # Move servos
-                                self.robot.servos[3].move(sin(t) * 10 + 120)
-                                self.robot.servos[6].move(cos(t) * 10 + 120)
+                                self.robot.servos[3].move(sin(t) * 20 + 120)
+                                self.robot.servos[6].move(cos(t) * 20 + 120)
 
                         error_count = 0  # Reset error count on successful operation
                         time.sleep(self.demo_update_rate)
