@@ -163,9 +163,9 @@ class RobotController:
             try:
                 # Only move servos 3 and 6 (upper legs)
                 if 3 in self.servos:
-                    self.servos[3].move(sin(t) * 10 + 120)
+                    self.servos[3].move(sin(t) * 20 + 120)
                 if 6 in self.servos:
-                    self.servos[6].move(cos(t) * 10 + 120)
+                    self.servos[6].move(cos(t) * 20 + 120)
                 time.sleep(0.01)
                 t += 0.1
             except ServoTimeoutError as e:
