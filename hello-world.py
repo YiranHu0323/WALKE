@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                            QHBoxLayout, QLabel, QPushButton, QGridLayout, 
                            QStatusBar, QProgressBar)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QEvent
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QPainter, QColor, QPen
 from pylx16a.lx16a import *
 import serial
 
