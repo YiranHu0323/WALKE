@@ -30,9 +30,9 @@ class RobotController:
         self.safe_positions = {
             1: 111,
             2: 120,
-            3: 120,
+            3: 180,
             4: 133,
-            5: 120,
+            5: 60,
             6: 120
         }
         # Temperature and current limits
@@ -427,9 +427,9 @@ class ServoControlGUI(QMainWindow):
         self.home_positions = {
             1: 111,  # left hip
             2: 120,  # left lower leg
-            3: 120,  # left upper leg
+            3: 180,  # left upper leg
             4: 133,  # right hip
-            5: 120,  # right lower leg
+            5: 60,  # right lower leg
             6: 120   # right upper leg
         }
 
