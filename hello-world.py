@@ -417,25 +417,26 @@ class ServoControlGUI(QMainWindow):
         self.demo_thread = None
         self.running = False
         self.signals = Signals()
+        self.face_window = None  # Add this line
         self.signals.autotest_complete.connect(self.on_autotest_complete)
         self.signals.status_update.connect(self.update_status_message)
         self.signals.servo_status.connect(self.update_servo_widget)
-        self.demo_update_rate = 0.01  # How often to update servo positions (seconds)
-        self.status_update_rate = 500  # How often to update status display (milliseconds)
-        self.movement_scale = 0.2  # How fast the sine/cosine wave changes
+        self.demo_update_rate = 0.01
+        self.status_update_rate = 500
+        self.movement_scale = 0.2
         self.setup_ui()
         self.home_positions = {
             1: 111,  # left hip
             2: 120,  # left lower leg
             3: 180,  # left upper leg
             4: 133,  # right hip
-            5: 60,  # right lower leg
+            5: 60,   # right lower leg
             6: 120   # right upper leg
         }
 
         self.moving_forward = False
         self.moving_sideways = False
-        self.sideways_direction = 0  # -1 for left, 1 for right
+        self.sideways_direction = 0
         self.control_thread = None
         self.t = 0
     
@@ -886,9 +887,17 @@ class ServoControlGUI(QMainWindow):
 
     def toggle_demo(self):
         if not self.running:
+            # Show the face window
+            if self.face_window is None:
+                self.face_window = FaceWindow()
+                screens = QApplication.screens()
+                if len(screens) > 1:  # If there's more than one screen
+                    # Show face window on the secondary screen
+                    self.face_window.setGeometry(screens[1].geometry())
+                self.face_window.show()
+
             self.recorder = ServoDataRecorder()
             self.recorder.start()
-
             self.running = True
             self.demo_button.setText("Stop Demo")
             self.test_button.setEnabled(False)
@@ -953,12 +962,19 @@ class ServoControlGUI(QMainWindow):
                     # Reset button state
                     self.demo_button.setText("Start Demo")
                     self.test_button.setEnabled(True)
+                    # Close face window if it exists
+                    if self.face_window:
+                        self.face_window.close()
+                        self.face_window = None
             
             self.demo_thread = Thread(target=demo_thread)
             self.demo_thread.start()
             self.signals.status_update.emit("Demo running...")
         else:
             self.running = False
+            if self.face_window:
+                self.face_window.close()
+                self.face_window = None
             if self.recorder:
                 self.recorder.save_plot()
             self.demo_button.setText("Start Demo")
@@ -986,20 +1002,114 @@ class ServoControlGUI(QMainWindow):
             self.servo_widgets[servo_id].update_status(connected, angle, voltage, temp, led_on)
 
     def closeEvent(self, event):
+        if self.face_window:
+            self.face_window.close()
+            self.face_window = None
         self.running = False
         if self.demo_thread and self.demo_thread.is_alive():
             self.demo_thread.join()
         if self.robot:
-            # Safely stop all servos
             with self.robot_wrapper.lock:
-                # for servo in self.robot.servos.values():
-                #     try:
-                #         servo.disable_torque()
-                #     except:
-                #         pass
                 success, message = self.robot.safe_shutdown()
                 print(f"Final shutdown status: {message}")
         event.accept()
+
+class FaceWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+        
+    def initUI(self):
+        # Set window to fullscreen
+        self.showFullScreen()
+        self.setStyleSheet("background-color: white;")
+        
+        # Initialize blinking state
+        self.is_blinking = False
+        
+        # Set up blink timer
+        self.blink_timer = QTimer()
+        self.blink_timer.timeout.connect(self.blink)
+        
+        # Blink every 5 seconds
+        self.blink_timer.start(5000)
+        
+        # Timer for blink duration
+        self.blink_duration = QTimer()
+        self.blink_duration.timeout.connect(self.open_eyes)
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Get window dimensions
+        width = self.width()
+        height = self.height()
+        
+        # Calculate eye dimensions and positions
+        eye_width = width // 3
+        eye_height = height // 3
+        eye_spacing = eye_width // 3
+        
+        # Calculate center position
+        center_x = width // 2 + width // 64
+        center_y = (height // 2) - (height // 8)
+        
+        # Draw eyes
+        if not self.is_blinking:
+            # Draw white of eyes
+            painter.setBrush(QColor(255, 255, 255))
+            painter.setPen(QPen(Qt.GlobalColor.white, 3))
+            
+            # Left eye
+            painter.drawEllipse(center_x - eye_spacing - eye_width, 
+                              center_y - eye_height//2,
+                              eye_width, eye_height)
+            
+            # Right eye
+            painter.drawEllipse(center_x + eye_spacing, 
+                              center_y - eye_height//2,
+                              eye_width, eye_height)
+            
+            # Draw pupils
+            painter.setBrush(QColor(0, 0, 0))
+            pupil_size = eye_width // 2 + eye_width // 4
+            
+            # Left pupil
+            painter.drawEllipse(center_x - eye_spacing - eye_width//2 - pupil_size//2,
+                              center_y - pupil_size//2,
+                              pupil_size, pupil_size)
+            
+            # Right pupil
+            painter.drawEllipse(center_x + eye_spacing + eye_width//2 - pupil_size//2,
+                              center_y - pupil_size//2,
+                              pupil_size, pupil_size)
+        else:
+            # Draw closed eyes (just lines)
+            painter.setPen(QPen(Qt.GlobalColor.black, 5))
+            
+            # Left eye
+            painter.drawLine(center_x - eye_spacing - eye_width, center_y,
+                           center_x - eye_spacing, center_y)
+            
+            # Right eye
+            painter.drawLine(center_x + eye_spacing, center_y,
+                           center_x + eye_spacing + eye_width, center_y)
+    
+    def blink(self):
+        self.is_blinking = True
+        self.update()
+        # Keep eyes closed for 200ms
+        self.blink_duration.start(200)
+    
+    def open_eyes(self):
+        self.is_blinking = False
+        self.update()
+    
+    def keyPressEvent(self, event):
+        # Press 'Esc' to exit
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
 
 def main():
     app = QApplication(sys.argv)
