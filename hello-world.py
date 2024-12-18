@@ -28,12 +28,12 @@ class RobotController:
         self.retry_delay = retry_delay
 
         self.safe_positions = {
-            1: 85,
-            2: 162,
-            3: 160,
-            4: 130,
-            5: 92,
-            6: 100
+            1: 111,
+            2: 120,
+            3: 120,
+            4: 133,
+            5: 120,
+            6: 120
         }
         # Temperature and current limits
         self.temp_min = 20  # °C
