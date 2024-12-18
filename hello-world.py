@@ -163,9 +163,9 @@ class RobotController:
             try:
                 # Only move servos 3 and 6 (upper legs)
                 if 3 in self.servos:
-                    self.servos[3].move(sin(t) * 10 + 160)
+                    self.servos[3].move(sin(t) * 10 + 120)
                 if 6 in self.servos:
-                    self.servos[6].move(cos(t) * 10 + 100)
+                    self.servos[6].move(cos(t) * 10 + 120)
                 time.sleep(0.01)
                 t += 0.1
             except ServoTimeoutError as e:
@@ -425,12 +425,12 @@ class ServoControlGUI(QMainWindow):
         self.movement_scale = 0.2  # How fast the sine/cosine wave changes
         self.setup_ui()
         self.home_positions = {
-            1: 85,  # left hip
-            2: 162,  # left lower leg
-            3: 160,  # left upper leg
-            4: 130,  # right hip
-            5: 92,  # right lower leg
-            6: 100   # right upper leg
+            1: 111,  # left hip
+            2: 120,  # left lower leg
+            3: 120,  # left upper leg
+            4: 133,  # right hip
+            5: 120,  # right lower leg
+            6: 120   # right upper leg
         }
 
         self.moving_forward = False
@@ -622,9 +622,9 @@ class ServoControlGUI(QMainWindow):
                     # Forward movement (servos 3 and 6)
                     if self.moving_forward:
                         if 3 in self.robot.servos:
-                            self.robot.servos[3].move(sin(self.t) * 10 + 160)
+                            self.robot.servos[3].move(sin(self.t) * 10 + 120)
                         if 6 in self.robot.servos:
-                            self.robot.servos[6].move(cos(self.t) * 10 + 100)
+                            self.robot.servos[6].move(cos(self.t) * 10 + 120)
                         self.t += 0.1
                     
                     # Sideways movement (servos 1 and 4)
@@ -910,8 +910,8 @@ class ServoControlGUI(QMainWindow):
                                 self.recorder.record(servo3_pos, servo6_pos)
                                 
                                 # Move servos
-                                self.robot.servos[3].move(sin(t) * 10 + 160)
-                                self.robot.servos[6].move(cos(t) * 10 + 100)
+                                self.robot.servos[3].move(sin(t) * 10 + 120)
+                                self.robot.servos[6].move(cos(t) * 10 + 120)
 
                         error_count = 0  # Reset error count on successful operation
                         time.sleep(self.demo_update_rate)
