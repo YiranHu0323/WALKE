@@ -30,9 +30,9 @@ class RobotController:
         self.safe_positions = {
             1: 111,
             2: 120,
-            3: 120,
+            3: 180,
             4: 133,
-            5: 120,
+            5: 60,
             6: 120
         }
         # Temperature and current limits
